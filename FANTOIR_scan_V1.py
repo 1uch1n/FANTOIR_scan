@@ -1,55 +1,63 @@
-# Author: Louis Leclerc
+# Author: 1uch1n (1uch1n@protonmail.com)
 # Creation date: 04/11/2021
-# Last update: 11/11/2021
+# Last update: 14/02/2022
 # Description: Python script counting the number of occurences for each street names in France
 # Objective: Revealing how many Neruda streets there are
 # Source: France Open Data plaform data.gouv.fr, "FANTOIR" file
 # https://www.data.gouv.fr/fr/datasets/fichier-fantoir-des-voies-et-lieux-dits/
 # The FANTOIR file is an ASCII file, with approximately 120 characters per line
 # Each line may be either: a city, a street, a county
-
-
-
+# Documentation about FANTOIR file: https://www.data.gouv.fr/fr/datasets/r/7c52d813-1e98-4772-8a7a-6a01f9d30c6e
 
 import nltk
 import csv
 import time
-# location of the FANTOIR file
 import os
-repertory = "/media/luchin/NTFS Hard Drive/Work/Scripts Python/Streets in France"
+
+# Fetch updated data on street names and population in France
+print('Download latest data at:'
+'FANTOIR ("Fichier national FANTOIR (situation """MONTH YEAR""").zip"):\nhttps://www.data.gouv.fr/fr/datasets/fichier-fantoir-des-voies-et-lieux-dits/'
+'INSEE ("""ensemble.zip""" / """donnees_communes.csv"""):\nhttps://www.insee.fr/fr/statistiques/6011070?sommaire=6011075#consulter')
+
+# specify the location of the FANTOIR and file
+repertory = input('Copy/paste the path to FANTOIR and INSEE files:\n->')
+https://www.data.gouv.fr/fr/datasets/fichier-fantoir-des-voies-et-lieux-dits/
 os.chdir(repertory)
 file_name = "FANTOIR0721" # ASCII file
 INSEE_file = "PopCommunesINSEE.csv" # CSV file
 
 
+# French public administration sometime use the so-called "Rivoli code" to identity cities
+# Cf. FANTOIR documentation at https://data.economie.gouv.fr/api/datasets/1.0/fichier-fantoir-des-voies-et-lieux-dits/attachments/descriptif_du_fichier_national_fantoir_pdf
 
-
-
-
-
-# class detecting whether the rivoli code is corresponding to a region, a city or a street
-# and returning the appropriate output
 class Rivoli:
+    '''detect whether the Rivoli code is corresponding to a region, a city or a street and return the appropriate output'''
 
     def __init__(self, line):
+        # ignore the "Rivoli key" at line[11]
+        self.rivoli_code = line[:10].strip()
 
-        self.rivoli_code = line[:10].strip()    # we ignore the "Rivoli key" at line[11]
+        # extract the INSEE city codifiction
+        # that is, the county key (2 firts characters) and the city key (4th/5th/6th characters)
+        # the 3rd character ("direction key") at line[2] must be ignored
+        self.city_code = line[:2] + line[3:6]
 
-        self.city_code = line[:2] + line[3:6]   # INSEE city codifiction is composed of the county key (2 firts characters)
-                                                # and the city key (4th/5th/6th characters)
-                                                # the 3rd character ("direction key") at line[2] must be ignored
+        # extract the complete street name
+        # relevant only if it's a street line
+        self.complete_name = line[11:33].strip()
 
-        self.complete_name = line[11:33].strip() # only relevant if it's a street line
+        # extract the shortened street name
+        # which starts at the 122nd character and ends at the end of the line regardless of its size
+        # relevant only if it's a street line
+        self.short_name = line[112:].strip()
 
-        self.short_name = line[112:].strip()    # only relevant if it's a street line
-                                                # the shortened street name starts at the 122nd character
-                                                # and ends at the end of the line regardless of its size
-
-        self.city_name = line[11:42].strip()    # only relevant if it's a city line
+        # extract the city name
+        # relevant only if it's a city line
+        self.city_name = line[11:42].strip()
 
 
-# class opening INSEE csv file with all city codes and respective populations
 class Population:
+    '''open INSEE csv file with all city codes and respective populations'''
 
     def __init__(self, line):
 
@@ -61,6 +69,7 @@ class Population:
 
 
 def add_population():
+    '''create a dictionnary {city name: city population} for all cities in France'''
 
     cityNpop = {}
     with open(INSEE_file, "r") as f:
@@ -73,10 +82,8 @@ def add_population():
 
 
 
-
-
-# standard csv writing function
 def write_file(itr):
+    '''write a csv file adding INSEE population data to selected FANTOIR street names data'''
     file_name = input(f"Choose a file name\n ->") + ".csv"
     try:
         iter(itr)
@@ -105,18 +112,7 @@ def write_file(itr):
 
 
 
-
-
-
-
-
-
-
-# function opening FANTOIR file and sorting all lines through a loop which
-    # 1 identify if the line corresponds to a city or a street and
-    # 2 put them in their respective dictionnaries (city_dict or street_dict)
-    # 3 check if there's some Neruda in there to put it in a separate list
-
+# Set empty variables to create future outputs
 city_nb = 0
 city_dict = {}
 street_nb = 0
@@ -125,6 +121,10 @@ neruda_list = []
 
 
 def fantoir_scan(file):
+    '''open FANTOIR file and sort all lines through a loop:
+        - identify if the line corresponds to a city or a street
+        - put them in their respective dictionnaries (city_dict or street_dict)
+        - check if there's some Neruda in there to put it in a separate list'''
 
     start_time = time.time()
     with open(file, "r", encoding="ASCII") as f:
@@ -139,7 +139,7 @@ def fantoir_scan(file):
                 global city_nb
                 city_nb += 1
 
-                # we want a list of the names of city by their INSEE code
+                # list of the names of city by their INSEE code
                 if new_line.city_code not in city_dict:
                     city_dict[new_line.city_code] = new_line.city_name
                     print(f"\nNouvelle entrée CITY:{new_line.city_name}, code {new_line.city_code}\n\n\n\n")
@@ -151,7 +151,7 @@ def fantoir_scan(file):
                 global street_nb
                 street_nb += 1
 
-                # we want to count the number of streets with the same shortened name
+                # count the number of streets with the same shortened name
                 if new_line.short_name not in street_dict:
                     street_dict[new_line.short_name] = 1
                     print(f"\nNouvelle entrée STREET: {new_line.short_name}\n\n\n\n")
@@ -164,7 +164,7 @@ def fantoir_scan(file):
                 print("\nIt's another kind of line.\nPASS!\n\n\n\n")
                 pass
 
-            # If Neruda is the line, we store the result in a separate list
+            # If Neruda is the line, store the result in a separate list
             if new_line.short_name == "NERUDA":
                 neruda_line = {"City code": new_line.city_code, "City name": "NA", "Population": 0, "Short name": new_line.short_name, "Complete name": new_line.complete_name}
                 global neruda_list
@@ -219,7 +219,7 @@ if q6.capitalize() == "Yes":
         for k in street_dict.copy():
             if street_dict[k] < number:
                 del street_dict[k]
-    # Sorting dictionnary according to the number of streets
+    # Sort dictionnary according to the number of streets
     sorted(street_dict.items(), key=lambda x: x[1], reverse=True)
     print(f"Street_dict is now type:  {type(street_dict)}")
     write_file(street_dict)
